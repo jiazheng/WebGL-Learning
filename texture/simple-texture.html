@@ -1,0 +1,157 @@
+<!doctype>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>简单纹理</title>
+<script id="shader-vs" type="x-shader/x-vertex">
+attribute vec3 aPos;
+attribute vec2 aVertexTextureCoord;
+varying highp vec2 vTextureCoord;
+void main(void){
+    gl_Position = vec4(aPos, 1);
+    vTextureCoord = aVertexTextureCoord;
+}
+</script>
+<script id="shader-fs" type="x-shader/x-fragment">
+varying highp vec2 vTextureCoord;
+uniform sampler2D uSampler;
+void main(void) {
+    gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+}
+</script>
+</head>
+<body>
+<canvas id="canvas" width="600" height="600"></canvas>
+<p>加载一张图片作为纹理</p>
+<script>
+var gl = null,
+    glProgram = null,
+    vertexBuffer = null,
+    vertexIndiceBuffer = null;
+var canvas = document.getElementById('canvas');
+var isCleared = false;
+
+function setupContext(){
+    try {
+	    gl = canvas.getContext("experimental-webgl");					
+    }catch(e){
+    }
+	if (gl) {
+        gl.clearColor(74 / 255, 115 / 255, 94 / 255, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.enable(gl.DEPTH_TEST);
+	}
+}
+
+function initShaders() {
+    //get shader source
+    var vs_source = document.getElementById('shader-vs').innerHTML,
+        fs_source = document.getElementById('shader-fs').innerHTML;
+        
+    //compile shaders	
+    vertexShader = makeShader(vs_source, gl.VERTEX_SHADER);
+    fragmentShader = makeShader(fs_source, gl.FRAGMENT_SHADER);
+    
+    //create program
+    glProgram = gl.createProgram();
+    
+    //attach and link shaders to the program
+    gl.attachShader(glProgram, vertexShader);
+    gl.attachShader(glProgram, fragmentShader);
+    gl.linkProgram(glProgram);
+
+    if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) {
+        alert("Unable to initialize the shader program.");
+    }
+    
+    //use program
+    gl.useProgram(glProgram);
+}
+			
+function makeShader(src, type) {
+    //compile the vertex shader
+    var shader = gl.createShader(type);
+    gl.shaderSource(shader, src);
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        alert("Error compiling shader: " + gl.getShaderInfoLog(shader));
+    }
+    return shader;
+}
+var vertex = [
+    -0.5, -0.5, 0.0,
+    -0.5, 0.5, 0.0,
+    0.5, -0.5, 0.0,
+    0.5, 0.5, 0.0
+];
+var vertexIndice = [
+    0, 1, 2,
+    2, 1, 3
+];
+var triangleTexCoords = [
+    0.0, 0.0,
+    0.0, 1.0,
+    1.0, 0.0,
+    1.0, 1.0
+];
+var samplerUniform;
+var texture1;
+function onImageLoad(img){
+    
+    vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertex), gl.STATIC_DRAW);
+    
+    texture1 = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture1);
+
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);		
+    
+    gl.uniform1i(samplerUniform, 0);
+    
+    vertexIndiceBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndiceBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(vertexIndice), gl.STATIC_DRAW);
+
+    var aVertexPosition = gl.getAttribLocation(glProgram, 'aPos');
+    gl.vertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aVertexPosition);
+    
+    var trianglesTexCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, trianglesTexCoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triangleTexCoords), gl.STATIC_DRAW);
+    
+    var vertexTexCoordAttribute = gl.getAttribLocation(glProgram, "aVertexTextureCoord"); // attr 1
+    gl.enableVertexAttribArray(vertexTexCoordAttribute);
+    gl.vertexAttribPointer(vertexTexCoordAttribute, 2, gl.FLOAT, false, 0, 0);
+    
+    gl.clearColor(74 / 255, 115 / 255, 94 / 255, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    
+    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+}
+
+function setupBuffer(){
+    var img1 = new Image();
+    img1.onload = function(){
+        onImageLoad(this);
+    };
+    img1.src = '../images/wood-texture.jpg';
+}
+
+function doIt(){
+    setupContext();
+    initShaders();
+    samplerUniform = gl.getUniformLocation(glProgram, 'uSampler');
+    setupBuffer();
+}
+window.onload = function(){
+    doIt();
+}
+</script>
+</body>
+<html>
