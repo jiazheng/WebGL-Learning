@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>basic - WebGL Learning</title>
+<script id="shader-vs" type="x-shader/x-vertex">
+attribute vec3 aPos;
+void main(void){
+    gl_Position = vec4(aPos, 1);
+}
+</script>
+<script id="shader-fs" type="x-shader/x-fragment">
+void main(void) {
+    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+}
+</script>
+</head>
+<body>
+<canvas id="canvas" width="800" height="600" ></canvas>
+<script>
+/**
+ * basic drawing
+ * drawing a triangle by loading vertex data from server
+ * in format of binary data
+ */
+var gl;
+var canvas = document.getElementById('canvas');
+var glProgram = null;
+
+function getGLContext() {
+    var glCtxNames = ['webgl', 'experimental-webgl'];
+    for (var i = 0; i < glCtxNames.length; i ++) {
+        try {
+            gl = canvas.getContext(glCtxNames[i]);
+        } catch (e) {}
+        if (gl) {
+            gl.clearColor(74 / 255, 115 / 255, 94 / 255, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            break;
+        }
+    }
+}
+
+function initShaders() {
+    //get shader source
+    var vs_source = document.getElementById('shader-vs').innerHTML,
+        fs_source = document.getElementById('shader-fs').innerHTML;
+        
+    //compile shaders	
+    vertexShader = makeShader(vs_source, gl.VERTEX_SHADER);
+    fragmentShader = makeShader(fs_source, gl.FRAGMENT_SHADER);
+    
+    //create program
+    glProgram = gl.createProgram();
+    
+    //attach and link shaders to the program
+    gl.attachShader(glProgram, vertexShader);
+    gl.attachShader(glProgram, fragmentShader);
+    gl.linkProgram(glProgram);
+
+    if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) {
+        alert("Unable to initialize the shader program.");
+    }
+    
+    //use program
+    gl.useProgram(glProgram);
+}
+			
+function makeShader(src, type) {
+    //compile the vertex shader
+    var shader = gl.createShader(type);
+    gl.shaderSource(shader, src);
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        alert("Error compiling shader: " + gl.getShaderInfoLog(shader));
+    }
+    return shader;
+}
+
+var vertexRawData = null;
+var vertexIndiceRawData = null;
+
+function loadVertexData(){
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'get_data.php?type=vertex');
+    xhr.responseType = 'arraybuffer';
+    xhr.onreadystatechange = function(){
+        if (xhr.readyState == 4) {
+            if (xhr.status == 200) {
+                vertexRawData = xhr.response;
+                if (vertexIndiceRawData) {
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                    setupBuffer(vertexRawData, vertexIndiceRawData);
+                    draw();
+                }
+            }
+        }
+    };
+    xhr.send(null);
+}
+
+function loadIndiceData(){
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'get_data.php?type=indice');
+    xhr.responseType = 'arraybuffer';
+    xhr.onreadystatechange = function(){
+        if (xhr.readyState == 4) {
+            if (xhr.status == 200) {
+                vertexIndiceRawData = xhr.response;
+                if (vertexRawData) {
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                    setupBuffer(vertexRawData, vertexIndiceRawData);
+                    draw();
+                }
+            }
+        }
+    };
+    xhr.send(null);
+}
+
+function setupBuffer(vertex, vertexIndice){
+    var vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertex), gl.STATIC_DRAW);
+
+    var vertexIndiceBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndiceBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(vertexIndice), gl.STATIC_DRAW);
+
+    var aVertexPosition = gl.getAttribLocation(glProgram, 'aPos');
+    // point the attribute to the currently bound vertex buffer. 
+    gl.vertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(aVertexPosition);
+}
+
+function draw(){
+    gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_SHORT, 0);
+}
+
+window.onload = function(){
+    getGLContext();
+    initShaders();
+    loadVertexData();
+    loadIndiceData();
+}
+</script>
+</body>
+</html>
