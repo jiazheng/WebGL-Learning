@@ -23,38 +23,36 @@ void main(void) {
 <body>
 <canvas id="canvas" width="600" height="600"></canvas>
 <script>
-var gl = null,
-    glProgram = null,
-    vertexBuffer = null,
-    vertexIndiceBuffer = null;
 var canvas = document.getElementById('canvas');
-var isCleared = false;
+var gl = null;
+var glProgram = null;
+var vertexBuffer = null;
+var vertexIndiceBuffer = null;
+var samplerUniform = null;
+var texture = null;
 
 function setupContext(){
     try {
-	    gl = canvas.getContext("experimental-webgl");					
+       gl = canvas.getContext("webgl");
     }catch(e){
     }
-	if (gl) {
+    if (gl) {
         gl.clearColor(74 / 255, 115 / 255, 94 / 255, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.enable(gl.DEPTH_TEST);
-	}
+    }
 }
 
 function initShaders() {
     //get shader source
     var vs_source = document.getElementById('shader-vs').innerHTML,
         fs_source = document.getElementById('shader-fs').innerHTML;
-        
-    //compile shaders	
+    // compile shaders	
     vertexShader = makeShader(vs_source, gl.VERTEX_SHADER);
     fragmentShader = makeShader(fs_source, gl.FRAGMENT_SHADER);
-    
-    //create program
+
+    // create program
     glProgram = gl.createProgram();
-    
-    //attach and link shaders to the program
+    // attach and link shaders to the program
     gl.attachShader(glProgram, vertexShader);
     gl.attachShader(glProgram, fragmentShader);
     gl.linkProgram(glProgram);
@@ -62,11 +60,10 @@ function initShaders() {
     if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) {
         alert("Unable to initialize the shader program.");
     }
-    
-    //use program
+    // use program
     gl.useProgram(glProgram);
 }
-			
+
 function makeShader(src, type) {
     //compile the vertex shader
     var shader = gl.createShader(type);
@@ -94,39 +91,36 @@ var triangleTexCoords = [
     1.0, 0.0,
     1.0, 1.0
 ];
-var samplerUniform;
-var texture1;
-function onImageLoad(img){
-    
+function draw () {
+    // vertex data
     vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertex), gl.STATIC_DRAW);
     
-    texture1 = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture1);
-
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);		
-    
-    gl.uniform1i(samplerUniform, 0);
-    
+    // indice data
     vertexIndiceBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertexIndiceBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(vertexIndice), gl.STATIC_DRAW);
 
+    // set position attribute
     var aVertexPosition = gl.getAttribLocation(glProgram, 'aPos');
     gl.vertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(aVertexPosition);
     
+    // texture coordinate data
     var trianglesTexCoordBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, trianglesTexCoordBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triangleTexCoords), gl.STATIC_DRAW);
     
-    var vertexTexCoordAttribute = gl.getAttribLocation(glProgram, "aVertexTextureCoord"); // attr 1
+    // set texture coordinate attribute
+    var vertexTexCoordAttribute = gl.getAttribLocation(glProgram, "aVertexTextureCoord");
     gl.enableVertexAttribArray(vertexTexCoordAttribute);
     gl.vertexAttribPointer(vertexTexCoordAttribute, 2, gl.FLOAT, false, 0, 0);
+    
+    // bind texture and set the sampler
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(samplerUniform, 0);
     
     gl.clearColor(74 / 255, 115 / 255, 94 / 255, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -134,22 +128,34 @@ function onImageLoad(img){
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 }
 
-function setupBuffer(){
-    var img1 = new Image();
-    img1.onload = function(){
-        onImageLoad(this);
-    };
-    img1.src = '../images/wood-texture.jpg';
+function createTexture (source) {
+    var texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return texture;
 }
 
-function doIt(){
+function loadTextureImage () {
+    var img = new Image();
+    img.onload = function onImgLoad() {
+        texture = createTexture(this);
+        draw();
+    };
+    img.src = '../images/brick-texture.jpg';
+}
+
+function render() {
     setupContext();
     initShaders();
     samplerUniform = gl.getUniformLocation(glProgram, 'uSampler');
-    setupBuffer();
+    loadTextureImage();
 }
-window.onload = function(){
-    doIt();
+window.onload = function () {
+    render();
 }
 </script>
 </body>
